@@ -1,8 +1,10 @@
 {
   "Subscriptions": {
-    "Arbitrum-Sepolia": "0x2F8BE8ffd94BdA7438805e8DD032aF2209feFDBc"
+    "Arbitrum-Sepolia": "0x2F8BE8ffd94BdA7438805e8DD032aF2209feFDBc",
+    "BSCTestnet": "0x2F8BE8ffd94BdA7438805e8DD032aF2209feFDBc"
   },
   "Token": {
-    "Arbitrum-Sepolia": "0xfffe9dd1566f8357e034f0d3F0C2C8d95B8c7D4d"
+    "Arbitrum-Sepolia": "0xfffe9dd1566f8357e034f0d3F0C2C8d95B8c7D4d",
+    "BSCTestnet": "0xcf17f00ff939610776f039eCcAbbDdCDAEA21B74"
   }
 }
