@@ -39,14 +39,12 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Events emitted
     event SubscriptionCreated(uint256 indexed id, Subscription subscription);
-    event Subscribed(address indexed user, uint256 timestamp, Subscription subscription);
-    event SubscriptionRenewed(address indexed user, uint256 newExpiresAt, Subscription subscription);
+    event Subscribed(address indexed user, address token, uint256 price, uint256 timestamp, Subscription subscription);
+    event SubscriptionRenewed(address indexed user, address token, uint256 price, uint256 newExpiresAt, Subscription subscription);
 
     mapping(uint256 => Subscription) public _subscriptions;
     mapping(address => UserSubscription) public _userSubscriptions;
     mapping(uint256 => mapping(address => uint256)) public _subscriptionPrices; // subId => token => price
-
-    uint256[] private _subscriptionIds; // Track all subscription IDs
 
     constructor() {
         _grantRole(ADMIN_ROLE, msg.sender);
@@ -86,7 +84,6 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
     function createSubscription(string memory name, uint256 duration, uint256 id) external whenNotPaused {
         if (!hasRole(ADMIN_ROLE, msg.sender)) revert NotAdmin();
         if (duration == 0) revert DurationMustBeGreaterThanZero();
-        if (_subscriptions[id].duration > 0) revert SubscriptionDoesNotExist();
 
         Subscription memory newSub = Subscription({
             name: name,
@@ -94,7 +91,6 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
         });
 
         _subscriptions[id] = newSub;
-        _subscriptionIds.push(id);
     }
 
     /// @notice Gets a subscription's details
@@ -135,12 +131,6 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
         return _userSubscriptions[user].expiresAt;
     }
 
-    /// @notice Gets all subscription IDs
-    /// @return Array of subscription IDs
-    function getSubscriptionIds() external view returns (uint256[] memory) {
-        return _subscriptionIds;
-    }
-
     /// @notice Subscribes a user to a plan
     /// @param subId Subscription ID
     /// @param token ERC20 token address
@@ -169,7 +159,7 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
         if (_token.allowance(user, address(this)) < price) revert NotApproved();
         if (!_token.transferFrom(user, address(this), price)) revert PaymentFailed();
 
-        emit Subscribed(user, block.timestamp, sub);
+        emit Subscribed(user, token, price, block.timestamp, sub);
     }
 
     /// @notice Renews a user's subscription
@@ -198,7 +188,7 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
         if (_token.allowance(user, address(this)) < price) revert NotApproved();
         if (!_token.transferFrom(user, address(this), price)) revert PaymentFailed();
 
-        emit SubscriptionRenewed(user, userSub.expiresAt, sub);
+        emit SubscriptionRenewed(user, token, price, userSub.expiresAt, sub);
     }
 
     /// @notice Withdraws funds from the contract
