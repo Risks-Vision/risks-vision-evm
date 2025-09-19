@@ -2,6 +2,7 @@
 pragma solidity ^0.8.28;
 
 import {Subscriptions} from "./Subscriptions.sol";
+import {ISubscriptions} from "./ISubscriptions.sol";
 import {Test} from "forge-std/Test.sol";
 import {ERC20} from "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 import {console} from "forge-std/console.sol";
@@ -58,7 +59,7 @@ contract SubscriptionsTest is Test {
         subscriptions.subscribe(1, address(token));
         require(subscriptions.userHasSubscription(address(this)), "User should have subscription");
 
-        vm.expectRevert(Subscriptions.UserHasSubscription.selector);
+        vm.expectRevert(ISubscriptions.UserHasSubscription.selector);
         subscriptions.subscribe(1, address(token));
     }
 
@@ -77,54 +78,36 @@ contract SubscriptionsTest is Test {
     function test_UserCanRenewSubscription() public {
         token.approve(address(subscriptions), 2 ether);
         subscriptions.subscribe(1, address(token));
-        console.log("timestamp", block.timestamp);
-        console.log("expiresAt", subscriptions.subExpiresAt(address(this)));
-        console.log("haveSubscription", subscriptions.userHasSubscription(address(this)));
         require(subscriptions.userHasSubscription(address(this)), "User should have subscription");
         vm.warp(block.timestamp + 2 minutes);
-        console.log("timestamp", block.timestamp);
-        console.log("expiresAt", subscriptions.subExpiresAt(address(this)));
-        console.log("haveSubscription", subscriptions.userHasSubscription(address(this)));
         require(subscriptions.userHasSubscription(address(this)) == false, "User should not have subscription");
         subscriptions.renewSubscription(1, address(token));
-        console.log("timestamp", block.timestamp);
-        console.log("expiresAt", subscriptions.subExpiresAt(address(this)));
-        console.log("haveSubscription", subscriptions.userHasSubscription(address(this)));
         require(subscriptions.userHasSubscription(address(this)), "User should have subscription final");
     }
 
     function test_UserCanExtendSubscription() public {
         token.approve(address(subscriptions), 3 ether);
         subscriptions.subscribe(1, address(token));
-        console.log("timestamp", block.timestamp);
-        console.log("expiresAt", subscriptions.subExpiresAt(address(this)));
-        console.log("haveSubscription", subscriptions.userHasSubscription(address(this)));
         require(subscriptions.userHasSubscription(address(this)), "User should have subscription");
         subscriptions.renewSubscription(1, address(token));
-        console.log("timestamp", block.timestamp);
-        console.log("expiresAt", subscriptions.subExpiresAt(address(this)));
-        console.log("haveSubscription", subscriptions.userHasSubscription(address(this)));
         subscriptions.renewSubscription(1, address(token));
-        console.log("timestamp", block.timestamp);
-        console.log("expiresAt", subscriptions.subExpiresAt(address(this)));
-        console.log("haveSubscription", subscriptions.userHasSubscription(address(this)));
     }
 
     function test_OnlyAdminCanCreateSubscription() public {
         vm.prank(address(1));
-        vm.expectRevert(Subscriptions.NotAdmin.selector);
+        vm.expectRevert(ISubscriptions.NotAdmin.selector);
         subscriptions.createSubscription("test subscription", 1 minutes, 1);
     }
 
     function test_OnlyAdminCanWithdrawFunds() public {
         vm.prank(address(1));
-        vm.expectRevert(Subscriptions.NotAdmin.selector);
+        vm.expectRevert(ISubscriptions.NotAdmin.selector);
         subscriptions.withdrawFunds(address(token));
     }
 
     function test_OnlyAdminCanEditPayment() public {
         vm.prank(address(1));
-        vm.expectRevert(Subscriptions.NotAdmin.selector);
+        vm.expectRevert(ISubscriptions.NotAdmin.selector);
         subscriptions.editPayment(1, address(token), 1 ether);
     }
 

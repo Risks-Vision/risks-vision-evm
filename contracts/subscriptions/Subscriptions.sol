@@ -1,59 +1,24 @@
-// SPDX-License-Identifier: UNLICENSED
+// SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ISubscriptions} from "./ISubscriptions.sol";
 
 /// @title Subscriptions Contract
 /// @notice Manages subscription plans with flexible token pricing, admin controls, and pause functionality
 /// @dev Uses OpenZeppelin for access control, pausability, and safe ERC20 interactions
-contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
-    // Errors 
-    error SubscriptionDoesNotExist();
-    error UserHasSubscription();
-    error PaymentFailed();
-    error NotAdmin();
-    error DurationMustBeGreaterThanZero();
-    error PaymentNotAvailable();
-    error NotApproved();
-    error TokenCannotBeZeroAddress();
-    error InvalidSubscriptionId();
-
-    bytes32 public constant ADMIN_ROLE = keccak256("ADMIN_ROLE");
-
-    /// @notice Subscription struct containing name and duration
-    struct Subscription {
-        string name;
-        uint256 duration; // In seconds
-    }
-
-    /// @notice User subscription details
-    struct UserSubscription {
-        address user;
-        uint256 timestamp; // In seconds
-        uint256 expiresAt; // In seconds
-        uint256 subscription;
-    }
-
-    /// @notice Events emitted
-    event SubscriptionCreated(uint256 indexed id, Subscription subscription);
-    event Subscribed(address indexed user, address token, uint256 price, uint256 timestamp, Subscription subscription);
-    event SubscriptionRenewed(address indexed user, address token, uint256 price, uint256 newExpiresAt, Subscription subscription);
-
-    mapping(uint256 => Subscription) public _subscriptions;
-    mapping(address => UserSubscription) public _userSubscriptions;
-    mapping(uint256 => mapping(address => uint256)) public _subscriptionPrices; // subId => token => price
-
+contract Subscriptions is ISubscriptions, AccessControl, Pausable, ReentrancyGuard {
     constructor() {
-        _grantRole(ADMIN_ROLE, msg.sender);
+        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
         _pause();
     }
 
     /// @notice Unpauses the contract, enabling subscriptions
-    function unpause() external {
-        if (!hasRole(ADMIN_ROLE, msg.sender)) revert NotAdmin();
+    function unpause() external override {
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert NotAdmin();
         _unpause();
     }
 
@@ -61,8 +26,8 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
     /// @param subId Subscription ID
     /// @param token ERC20 token address
     /// @param price Price in token units (considering token decimals)
-    function editPayment(uint256 subId, address token, uint256 price) external {
-        if(!hasRole(ADMIN_ROLE, msg.sender)) revert NotAdmin();
+    function editPayment(uint256 subId, address token, uint256 price) external override {
+        if(!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert NotAdmin();
         if(!subscriptionExists(subId)) revert SubscriptionDoesNotExist();
         if(token == address(0)) revert TokenCannotBeZeroAddress();
 
@@ -73,7 +38,7 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
     /// @param subId Subscription ID
     /// @param token ERC20 token address
     /// @return True if the token has a non-zero price
-    function isAvailablePayment(uint256 subId, address token) public view returns (bool) {
+    function isAvailablePayment(uint256 subId, address token) public view override returns (bool) {
         return _subscriptionPrices[subId][token] > 0;
     }
 
@@ -81,8 +46,8 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
     /// @param name Name of the subscription (max 32 bytes)
     /// @param duration Duration in seconds
     /// @param id Unique subscription ID
-    function createSubscription(string memory name, uint256 duration, uint256 id) external whenNotPaused {
-        if (!hasRole(ADMIN_ROLE, msg.sender)) revert NotAdmin();
+    function createSubscription(string memory name, uint256 duration, uint256 id) external whenNotPaused override {
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert NotAdmin();
         if (duration == 0) revert DurationMustBeGreaterThanZero();
 
         Subscription memory newSub = Subscription({
@@ -96,7 +61,7 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
     /// @notice Gets a subscription's details
     /// @param id Subscription ID
     /// @return Subscription struct
-    function getSubscription(uint256 id) public view returns (Subscription memory) {
+    function getSubscription(uint256 id) public view override returns (Subscription memory) {
         if (!subscriptionExists(id)) revert SubscriptionDoesNotExist();
         return _subscriptions[id];
     }
@@ -105,7 +70,7 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
     /// @param subId Subscription ID
     /// @param token ERC20 token address
     /// @return Price in token units
-    function getSubscriptionPrice(uint256 subId, address token) public view returns (uint256) {
+    function getSubscriptionPrice(uint256 subId, address token) public view override returns (uint256) {
         if (!subscriptionExists(subId)) revert SubscriptionDoesNotExist();
         return _subscriptionPrices[subId][token];
     }
@@ -113,28 +78,28 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
     /// @notice Checks if a subscription exists
     /// @param id Subscription ID
     /// @return True if the subscription exists
-    function subscriptionExists(uint256 id) public view returns (bool) {
+    function subscriptionExists(uint256 id) public view override returns (bool) {
         return _subscriptions[id].duration > 0;
     }
 
     /// @notice Checks if a user has an active subscription
     /// @param user User address
     /// @return True if the subscription is active
-    function userHasSubscription(address user) public view returns (bool) {
+    function userHasSubscription(address user) public view override returns (bool) {
         return _userSubscriptions[user].expiresAt >= block.timestamp;
     }
 
     /// @notice Gets the expiration timestamp of a user's subscription
     /// @param user User address
     /// @return Expiration timestam
-    function subExpiresAt(address user) public view returns (uint256) {
+    function subExpiresAt(address user) public view override returns (uint256) {
         return _userSubscriptions[user].expiresAt;
     }
 
     /// @notice Subscribes a user to a plan
     /// @param subId Subscription ID
     /// @param token ERC20 token address
-    function subscribe(uint256 subId, address token) external whenNotPaused nonReentrant {
+    function subscribe(uint256 subId, address token) external whenNotPaused nonReentrant override {
         address user = msg.sender;
 
         if (token == address(0)) revert TokenCannotBeZeroAddress();
@@ -165,7 +130,7 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
     /// @notice Renews a user's subscription
     /// @param subId Subscription ID
     /// @param token ERC20 token address
-    function renewSubscription(uint256 subId, address token) external whenNotPaused nonReentrant {
+    function renewSubscription(uint256 subId, address token) external whenNotPaused nonReentrant override {
         address user = msg.sender;
 
         if (token == address(0)) revert TokenCannotBeZeroAddress();
@@ -193,8 +158,10 @@ contract Subscriptions is AccessControl, Pausable, ReentrancyGuard {
 
     /// @notice Withdraws funds from the contract
     /// @param token ERC20 token address
-    function withdrawFunds(address token) external whenNotPaused {
-        if (!hasRole(ADMIN_ROLE, msg.sender)) revert NotAdmin();
+    function withdrawFunds(address token) external whenNotPaused nonReentrant override returns (bool) {
+        if (token == address(0)) revert TokenCannotBeZeroAddress();
+        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender) && !hasRole(REVENUE_DISTRIBUTION_ROLE, msg.sender)) revert NotAdmin();
         if (!IERC20(token).transfer(msg.sender, IERC20(token).balanceOf(address(this)))) revert PaymentFailed();
+        return true;
     }
 }
