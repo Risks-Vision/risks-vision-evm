@@ -2,7 +2,6 @@
 pragma solidity ^0.8.28;
 
 import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 import {ISubscriptions} from "../subscriptions/ISubscriptions.sol";
 import {IUniswapRouter} from "../interfaces/IUniswapRouter.sol";
@@ -11,7 +10,7 @@ import {IERC20Burnable} from "../token/IERC20Burnable.sol";
 /// @title IRevenueDistribution
 /// @notice Abstract contract defining the interface for revenue distribution functionality
 /// @dev This abstract contract provides the structure for managing revenue distribution from subscriptions
-abstract contract IRevenueDistribution is AccessControl, Pausable, ReentrancyGuard {
+abstract contract IRevenueDistribution is AccessControl, ReentrancyGuard {
     // Custom errors
     error NotAdmin();
     error TokenCannotBeZeroAddress();
@@ -71,7 +70,6 @@ abstract contract IRevenueDistribution is AccessControl, Pausable, ReentrancyGua
     function setMarketingAddress(address _address) external virtual;
     function setStakingAddress(address _address) external virtual;
     function setProjectToken(address _address) external virtual;
-    function unpause() external virtual;
 
     // Public view functions
     function getUSDTDistribution() public view virtual returns (USDTDistribution memory);

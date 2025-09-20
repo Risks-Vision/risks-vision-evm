@@ -16,7 +16,6 @@ contract RevenueDistribution is IRevenueDistribution {
      */
     constructor() {
         _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
-        _pause();
     }
 
     /**
@@ -101,37 +100,13 @@ contract RevenueDistribution is IRevenueDistribution {
     }
 
     /**
-     * @dev Unpauses the contract, allowing revenue distribution operations
-     * @notice Only admin can call this function
-     */
-    function unpause() external override {
-        if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert NotAdmin();
-        if (paused()) _unpause();
-    }
-
-
-    /**
-     * @dev Validates the ratios of the contract
-     * @notice The ratios must be between 0 and 100 and the sum of the ratios must be 100
-     */
-    function validateRatios() private pure {
-        if (_stablesRatio > 0 && _stablesRatio < 100) revert InvalidRatio();
-        if (_marketingPercent + _liquidityPercent == 100) revert InvalidRatio();
-        if (_stakingPercent + _burnPercent + _treasuryPercent == 100) revert InvalidRatio();
-    }
-
-    /**
      * @dev Calculates the distribution of USDT tokens based on current balance
      * @return _distribution A struct containing the amounts for marketing, liquidity, and buyback
      * @notice Marketing and liquidity get 50% each of the stable ratio, buyback gets the remaining USDT
      */
     function getUSDTDistribution() public view override returns (USDTDistribution memory) {
-        validateRatios();
-
         uint256 _amount = _USDT.balanceOf(address(this));
         uint256 _stables = _amount * _stablesRatio / 100;
-
-        if (_stables == 0) revert InsufficientBalance();
 
         return USDTDistribution({
             marketing: _stables * _marketingPercent / 100,
@@ -147,10 +122,6 @@ contract RevenueDistribution is IRevenueDistribution {
      * @notice The distribution is based on the non-stable ratio of the total amount
      */
     function getProjectTokenDistribution(uint256 _amount) public pure override returns (ProjectTokenDistribution memory) {
-        validateRatios();
-
-        if (_amount == 0) revert InvalidAmount();
-
         uint256 _tokens = _amount * (100 - _stablesRatio) / 100;
 
         return ProjectTokenDistribution({
@@ -165,7 +136,7 @@ contract RevenueDistribution is IRevenueDistribution {
      * @return success True if the withdrawal was successful, false otherwise
      * @notice This function is protected by reentrancy guard and can only be called internally
      */
-    function getRevenueFromSubscriptions() private nonReentrant returns (bool) {
+    function getRevenueFromSubscriptions() private returns (bool) {
         if (address(_USDT) == address(0)) revert TokenCannotBeZeroAddress();
         if (address(_subscriptions) == address(0)) revert SubscriptionsAddressNotSet();
         return _subscriptions.withdrawFunds(address(_USDT));
@@ -177,7 +148,7 @@ contract RevenueDistribution is IRevenueDistribution {
      * @notice This function is protected by reentrancy guard and can only be called internally
      * @notice Burns tokens by sending them to the zero address
      */
-    function distributeTokenToAddresses(ProjectTokenDistribution memory _distribution) private nonReentrant {
+    function distributeTokenToAddresses(ProjectTokenDistribution memory _distribution) private {
         if (_distribution.staking == 0 || _distribution.burn == 0 || _distribution.treasury == 0) revert InvalidAmount();
         if (!_projectToken.transfer(_stakingAddress, _distribution.staking)) revert PaymentFailed();
         if (!_projectToken.transfer(_treasuryAddress, _distribution.treasury)) revert PaymentFailed();
@@ -189,7 +160,7 @@ contract RevenueDistribution is IRevenueDistribution {
      * @param _marketing The amount of USDT to send to the marketing address
      * @notice This function is protected by reentrancy guard and can only be called internally
      */
-    function distributeUSDTToAddresses(uint256 _marketing) private nonReentrant {
+    function distributeUSDTToAddresses(uint256 _marketing) private {
         if (_marketing == 0) revert InvalidAmount();
         if (!_USDT.transfer(_marketingAddress, _marketing)) revert PaymentFailed();
     }
@@ -201,7 +172,7 @@ contract RevenueDistribution is IRevenueDistribution {
      * @notice Calculates the required project token amount based on current pool reserves
      * @notice Uses a 5-minute deadline for the transaction
      */
-    function addLiquidity(uint256 _usdtA) private nonReentrant {
+    function addLiquidity(uint256 _usdtA) private {
         if (_usdtA == 0) revert InvalidAmount();
         if (address(_USDT) == address(0) || address(_projectToken) == address(0) || address(_router) == address(0)) revert InvalidToken();
 
@@ -237,7 +208,7 @@ contract RevenueDistribution is IRevenueDistribution {
      * @notice Uses a direct USDT -> ProjectToken swap path
      * @notice Uses a 5-minute deadline for the transaction
      */
-    function swapUSDTToToken(uint256 _amount) private nonReentrant returns (uint256) {
+    function swapUSDTToToken(uint256 _amount) private returns (uint256) {
         if (address(_projectToken) == address(0)) revert TokenCannotBeZeroAddress();
         if (address(_USDT) == address(0)) revert USDTAddressNotSet();
         if (address(_router) == address(0)) revert RouterAddressNotSet();
@@ -293,7 +264,7 @@ contract RevenueDistribution is IRevenueDistribution {
      *         5. Distributes project tokens (staking, burn, treasury)
      *         6. Adds liquidity to the USDT/ProjectToken pair
      */
-    function distributeRevenue() external whenNotPaused nonReentrant override {
+    function distributeRevenue() external nonReentrant override {
         if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert NotAdmin();
         if (address(_USDT) == address(0)) revert TokenCannotBeZeroAddress();
         if(!getRevenueFromSubscriptions()) revert InvalidFundsWithdrawn();

@@ -22,10 +22,10 @@ Retail traders often lack access to comprehensive data and tools to effectively 
 
 ## Contract Addresses
 
-| Network     | Subscriptions                              | Token Contract                             |
-| ----------- | ------------------------------------------ | ------------------------------------------ |
-| BNB Mainnet | In progress                                | 0x9510E44Fb3b2d42DeF62A0824E7E777CAc448E75 |
-| BNB Testnet | 0x1A8C61755018dF7e7535b0BA9695ce0De22d365d | 0xcf17f00ff939610776f039eCcAbbDdCDAEA21B74 |
+| Network     | Subscriptions                              | Token Contract                             | Revenue distribution                       |
+| ----------- | ------------------------------------------ | ------------------------------------------ | ------------------------------------------ |
+| BNB Mainnet | In progress                                | 0x9510E44Fb3b2d42DeF62A0824E7E777CAc448E75 | In progress                                |
+| BNB Testnet | 0xCdd1D4C9eA7D4B8657e2ea77343c3ceDA04CfC27 | 0xc3c8f0990BBB3DD92dE419Fe76e26de2DA865158 | 0x0c70A1fb5EeDb43626cb1C2bec58f85824521Bd3 |
 
 ## Features
 
