@@ -6,20 +6,26 @@ import { configVariable } from "hardhat/config";
 const config: HardhatUserConfig = {
   plugins: [hardhatToolboxViemPlugin],
   solidity: {
-    profiles: {
-      default: {
-        version: "0.8.28",
-      },
-      production: {
-        version: "0.8.28",
+    compilers: [
+      {
+        version: "0.5.16",
         settings: {
-          optimizer: {
-            enabled: true,
-            runs: 200,
-          },
+          optimizer: { enabled: true, runs: 200 },
         },
       },
-    },
+      {
+        version: "0.6.6",
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+        },
+      },
+      {
+        version: "0.8.28",
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+        },
+      },
+    ],
   },
   networks: {
     hardhat: {

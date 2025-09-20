@@ -6,5 +6,15 @@
   "Token": {
     "Arbitrum-Sepolia": "0xfffe9dd1566f8357e034f0d3F0C2C8d95B8c7D4d",
     "BSCTestnet": "0xcf17f00ff939610776f039eCcAbbDdCDAEA21B74"
+  },
+  "UniswapTestnet": {
+    "BSCTestnet": {
+      "Factory": "0x0Ef067f34433F648B27e81C0CbB5D13278AA8843",
+      "Router": "0xEea9610e73A023474057c6d81BD25d01eeb59aB2",
+      "USDT": "0x239178f82618A1463E7a81ce831ffe31Df049DD3",
+      "RVT": "0xc3c8f0990BBB3DD92dE419Fe76e26de2DA865158",
+      "Subscriptions": "0xCdd1D4C9eA7D4B8657e2ea77343c3ceDA04CfC27",
+      "RevenueDistribution": ""
+    }
   }
 }

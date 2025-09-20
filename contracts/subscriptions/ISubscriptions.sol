@@ -1,12 +1,15 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Pausable} from "@openzeppelin/contracts/utils/Pausable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 /// @title ISubscriptions Interface
 /// @notice Abstract contract defining the interface for subscription management systems
 /// @dev This interface provides a standard for subscription contracts with flexible token pricing
-abstract contract ISubscriptions {
+abstract contract ISubscriptions is AccessControl, Pausable, ReentrancyGuard {
     // Errors
     error SubscriptionDoesNotExist();
     error UserHasSubscription();
