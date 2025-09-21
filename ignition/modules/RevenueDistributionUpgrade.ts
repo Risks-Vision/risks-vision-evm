@@ -1,6 +1,6 @@
 import { buildModule } from "@nomicfoundation/hardhat-ignition/modules";
 
-import DemoModule from "./ProxyModule.js";
+import DemoModule from "./RevenueDistribution.js";
 
 const upgradeModule = buildModule("UpgradeModule", (m) => {
   const proxyAdminOwner = m.getAccount(0);

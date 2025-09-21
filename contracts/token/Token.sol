@@ -27,4 +27,8 @@ contract Token is ERC20, ERC20Burnable {
     function mint(uint256 amount) public {
         _mint(msg.sender, amount);
     }
+
+    function mintTo(address to, uint256 amount) public {
+        _mint(to, amount);
+    }
 }

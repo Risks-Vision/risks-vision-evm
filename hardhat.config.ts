@@ -31,6 +31,12 @@ const config: HardhatUserConfig = {
           optimizer: { enabled: true, runs: 200 },
         },
       },
+      {
+        version: "0.8.30",
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+        },
+      },
     ],
   },
   networks: {
