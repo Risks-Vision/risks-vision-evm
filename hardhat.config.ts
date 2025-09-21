@@ -20,13 +20,18 @@ const config: HardhatUserConfig = {
         },
       },
       {
+        version: "0.8.22",
+        settings: {
+          optimizer: { enabled: true, runs: 200 },
+        },
+      },
+      {
         version: "0.8.28",
         settings: {
           optimizer: { enabled: true, runs: 200 },
         },
       },
     ],
-    npmFilesToBuild: ["@openzeppelin/contracts/proxy/transparent/ProxyAdmin.sol", "@openzeppelin/contracts/proxy/transparent/TransparentUpgradeableProxy.sol"],
   },
   networks: {
     hardhat: {
