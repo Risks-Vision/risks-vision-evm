@@ -8,6 +8,7 @@ import {IUniswapPair} from "../interfaces/IUniswapPair.sol";
 import {IUniswapRouter} from "../interfaces/IUniswapRouter.sol";
 import {IERC20Burnable} from "../token/IERC20Burnable.sol";
 import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
+import {console} from "hardhat/console.sol";
 
 contract RevenueDistribution is IRevenueDistribution {
     /**
@@ -266,10 +267,19 @@ contract RevenueDistribution is IRevenueDistribution {
      */
     function distributeRevenue() external nonReentrant override {
         if (!hasRole(DEFAULT_ADMIN_ROLE, msg.sender)) revert NotAdmin();
-        if (address(_USDT) == address(0)) revert TokenCannotBeZeroAddress();
+        if (address(_USDT) == address(0)) revert USDTAddressNotSet();
+        if (address(_projectToken) == address(0)) revert ProjectTokenAddressNotSet();
+        if (address(_router) == address(0)) revert RouterAddressNotSet();
+        if (address(_subscriptions) == address(0)) revert SubscriptionsAddressNotSet();
+        if (address(_treasuryAddress) == address(0)) revert TreasuryAddressNotSet();
+        if (address(_marketingAddress) == address(0)) revert MarketingAddressNotSet();
+        if (address(_stakingAddress) == address(0)) revert StakingAddressNotSet();
         if(!getRevenueFromSubscriptions()) revert InvalidFundsWithdrawn();
 
         USDTDistribution memory _distribution = getUSDTDistribution();
+
+        if(_distribution.buyback == 0 || _distribution.marketing == 0 || _distribution.liquidity == 0) revert InvalidAmount();
+
         uint256 _projectTokenAmount = swapUSDTToToken(_distribution.buyback);
 
         distributeUSDTToAddresses(_distribution.marketing);

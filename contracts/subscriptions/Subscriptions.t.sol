@@ -43,12 +43,9 @@ contract SubscriptionsTest is Test {
 
     function test_UserCanSubscribe() public {
         uint256 beforeBalance = token.balanceOf(address(this));
-
         require(beforeBalance >= 1 ether, "Balance should be greater than 1 ether");
-
         token.approve(address(subscriptions), 1 ether);
         subscriptions.subscribe(1, address(token));
-
         require(subscriptions.userHasSubscription(address(this)), "User should have subscription");
         require(token.allowance(address(this), address(subscriptions)) == 0, "Allowance should be 0");
         require(token.balanceOf(address(this)) == beforeBalance - 1 ether, "Balance should be before balance - 1 ether");
@@ -58,7 +55,6 @@ contract SubscriptionsTest is Test {
         token.approve(address(subscriptions), 1 ether);
         subscriptions.subscribe(1, address(token));
         require(subscriptions.userHasSubscription(address(this)), "User should have subscription");
-
         vm.expectRevert(ISubscriptions.UserHasSubscription.selector);
         subscriptions.subscribe(1, address(token));
     }
@@ -66,12 +62,9 @@ contract SubscriptionsTest is Test {
     function test_SubscriptionDuration() public {
         token.approve(address(subscriptions), 1 ether);
         subscriptions.subscribe(1, address(token));
-
         require(subscriptions.userHasSubscription(address(this)), "User should have subscription");
         require(subscriptions.subExpiresAt(address(this)) == block.timestamp + 1 minutes, "Expires at should be 1 minutes");
-       
         vm.warp(block.timestamp + 2 minutes);
-       
         require(subscriptions.userHasSubscription(address(this)) == false, "User should not have subscription");
     }
 

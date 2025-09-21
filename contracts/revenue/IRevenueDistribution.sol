@@ -20,6 +20,10 @@ abstract contract IRevenueDistribution is AccessControl, ReentrancyGuard {
     error InvalidFundsWithdrawn();
     error RouterAddressNotSet();
     error USDTAddressNotSet();
+    error ProjectTokenAddressNotSet();
+    error TreasuryAddressNotSet();
+    error MarketingAddressNotSet();
+    error StakingAddressNotSet();
     error SwapFailed();
     error PairNotFound();
     error ZeroReserves();
