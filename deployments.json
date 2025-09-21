@@ -7,14 +7,21 @@
     "Arbitrum-Sepolia": "0xfffe9dd1566f8357e034f0d3F0C2C8d95B8c7D4d",
     "BSCTestnet": "0xcf17f00ff939610776f039eCcAbbDdCDAEA21B74"
   },
-  "UniswapTestnet": {
+  "UniswapAndTokens": {
     "BSCTestnet": {
       "Factory": "0x0Ef067f34433F648B27e81C0CbB5D13278AA8843",
       "Router": "0xEea9610e73A023474057c6d81BD25d01eeb59aB2",
-      "USDT": "0x239178f82618A1463E7a81ce831ffe31Df049DD3",
-      "RVT": "0xc3c8f0990BBB3DD92dE419Fe76e26de2DA865158",
-      "Subscriptions": "0xCdd1D4C9eA7D4B8657e2ea77343c3ceDA04CfC27",
-      "RevenueDistribution": ""
+      "USDT": "0x4d244d2D0C4d86DBe76383b2919d2c3780A5Ed39",
+      "RVT": "0x26Ea2Ac522A80307e920a5C01c538238F939208a",
+      "Subscriptions": "0xCdd1D4C9eA7D4B8657e2ea77343c3ceDA04CfC27"
+    }
+  },
+  "RevenueDistribution": {
+    "BSCTestnet": {
+      "RevenueDistributionImpl": "0x2089Ba72B00C5387D104b9f949364D42fc82dDD9",
+      "RevenueDistributionImplV2": "0xe71D7c2C33E0D02062459d365a338B91C5C45294",
+      "TransparentUpgradableProxy": "0x950Dd764a18e7cE408Fb88fE1e70E9685636c0EE",
+      "ProxyAdmin": "0x6974B96b01dE9451C2908b36Caf569EcFFCdfc7f"
     }
   }
 }

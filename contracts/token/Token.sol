@@ -9,7 +9,7 @@ import {ERC20Burnable} from "@openzeppelin/contracts/token/ERC20/extensions/ERC2
 
 contract Token is ERC20, ERC20Burnable {
     constructor(string memory name, string memory symbol) ERC20(name, symbol) {
-        _mint(msg.sender, 10000000 ether);
+        _mint(msg.sender, 1000000000 ether);
     }
 
     function burn(uint256 amount) public override {
@@ -22,5 +22,9 @@ contract Token is ERC20, ERC20Burnable {
 
     function approve(address spender, uint256 amount) public override returns (bool) {
         return super.approve(spender, amount);
+    }
+
+    function mint(uint256 amount) public {
+        _mint(msg.sender, amount);
     }
 }
