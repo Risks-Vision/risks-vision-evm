@@ -1,16 +1,16 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
-import {AccessControl} from "@openzeppelin/contracts/access/AccessControl.sol";
-import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {AccessControlUpgradeable} from "@openzeppelin/contracts-upgradeable/access/AccessControlUpgradeable.sol";
+import {ReentrancyGuardUpgradeable} from "@openzeppelin/contracts-upgradeable/utils/ReentrancyGuardUpgradeable.sol";
 import {ISubscriptions} from "../subscriptions/ISubscriptions.sol";
-import {IUniswapRouter} from "../interfaces/IUniswapRouter.sol";
+import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
 import {IERC20Burnable} from "../token/IERC20Burnable.sol";
 
 /// @title IRevenueDistribution
 /// @notice Abstract contract defining the interface for revenue distribution functionality
 /// @dev This abstract contract provides the structure for managing revenue distribution from subscriptions
-abstract contract IRevenueDistribution is AccessControl, ReentrancyGuard {
+abstract contract IRevenueDistribution is AccessControlUpgradeable, ReentrancyGuardUpgradeable {
     // Custom errors
     error NotAdmin();
     error TokenCannotBeZeroAddress();
@@ -63,8 +63,11 @@ abstract contract IRevenueDistribution is AccessControl, ReentrancyGuard {
     // Token and contract instances
     IERC20Burnable public _USDT;
     IERC20Burnable public _projectToken;
-    IUniswapRouter public _router;
+    IUniswapV2Router02 public _router;
     ISubscriptions public _subscriptions;
+
+    // Initialization function
+    function initialize(address admin) external virtual;
 
     // External functions - Configuration
     function setRouter(address _address) external virtual;

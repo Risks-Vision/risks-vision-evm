@@ -1,22 +1,24 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.28;
 
+import {IUniswapV2Factory} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Factory.sol";
+import {IUniswapV2Pair} from "@uniswap/v2-core/contracts/interfaces/IUniswapV2Pair.sol";
+import {IUniswapV2Router02} from "@uniswap/v2-periphery/contracts/interfaces/IUniswapV2Router02.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {IRevenueDistribution} from "./IRevenueDistribution.sol";
 import {ISubscriptions} from "../subscriptions/ISubscriptions.sol";
-import {IUniswapFactory} from "../interfaces/IUniswapFactory.sol";
-import {IUniswapPair} from "../interfaces/IUniswapPair.sol";
-import {IUniswapRouter} from "../interfaces/IUniswapRouter.sol";
 import {IERC20Burnable} from "../token/IERC20Burnable.sol";
-import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
-import {console} from "hardhat/console.sol";
 
 contract RevenueDistribution is IRevenueDistribution {
     /**
      * @dev Initializes the RevenueDistribution contract
-     * Grants admin role to the deployer and pauses the contract initially
+     * Grants admin role to the deployer
+     * @param admin Address of the admin who will have DEFAULT_ADMIN_ROLE
      */
-    constructor() {
-        _grantRole(DEFAULT_ADMIN_ROLE, msg.sender);
+    function initialize(address admin) public initializer override {
+        __AccessControl_init();
+        __ReentrancyGuard_init();
+        _grantRole(DEFAULT_ADMIN_ROLE, admin);
     }
 
     /**
@@ -37,7 +39,7 @@ contract RevenueDistribution is IRevenueDistribution {
      */
     function setRouter(address _address) external override {
         validateAdminSetter(_address);
-        _router = IUniswapRouter(_address);
+        _router = IUniswapV2Router02(_address);
     }
     
     /**
@@ -192,8 +194,8 @@ contract RevenueDistribution is IRevenueDistribution {
             address(_projectToken),
             _usdtA,
             _tokenA,
-            0,
-            0,
+            _tokenA * 99 / 100,
+            _tokenA * 99 / 100,
             address(this),
             deadline
         );
@@ -240,12 +242,12 @@ contract RevenueDistribution is IRevenueDistribution {
      function getRequiredTokenForLiquidity(uint256 _amount) public view override returns (uint256) {
         if (_amount == 0) revert InvalidAmount();
 
-        address factory = IUniswapRouter(address(_router)).factory();
-        address pair = IUniswapFactory(factory).getPair(address(_USDT), address(_projectToken));
+        address factory = IUniswapV2Router02(address(_router)).factory();
+        address pair = IUniswapV2Factory(factory).getPair(address(_USDT), address(_projectToken));
 
         if (address(pair) == address(0)) revert PairNotFound();
 
-        IUniswapPair uniswapPair = IUniswapPair(pair);
+        IUniswapV2Pair uniswapPair = IUniswapV2Pair(pair);
         (uint112 reserve0, uint112 reserve1,) = uniswapPair.getReserves();
 
         if (reserve0 == 0 || reserve1 == 0) revert ZeroReserves();

@@ -191,8 +191,10 @@ contract RevenueDistributionTests is Test {
         pair = MockUniswapPair(factory.createPair(address(usdt), address(projectToken)));
         
         // Deploy RevenueDistribution contract
-        vm.prank(admin);
+        vm.startPrank(admin);
         revenueDistribution = new RevenueDistribution();
+        revenueDistribution.initialize(admin);
+        vm.stopPrank();
         
         // Setup initial balances
         usdt.mint(address(subscriptions), 10000 ether);

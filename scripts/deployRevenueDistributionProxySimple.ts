@@ -1,0 +1,96 @@
+import { ethers } from "hardhat";
+import { Contract } from "ethers";
+
+async function main() {
+  const [deployer] = await ethers.getSigners();
+
+  console.log("Deploying contracts with the account:", deployer.address);
+  console.log("Account balance:", (await deployer.getBalance()).toString());
+
+  // Deploy the implementation contract
+  console.log("\n1. Deploying RevenueDistribution implementation...");
+  const RevenueDistribution = await ethers.getContractFactory("RevenueDistribution");
+  const implementation = await RevenueDistribution.deploy();
+  await implementation.deployed();
+  console.log("RevenueDistribution implementation deployed to:", implementation.address);
+
+  // Deploy the simple proxy
+  console.log("\n2. Deploying RevenueDistributionProxySimple...");
+  const ProxySimple = await ethers.getContractFactory("RevenueDistributionProxySimple");
+
+  // Prepare initialization data (empty for now since we're using constructor)
+  const initData = "0x";
+
+  const proxy = await ProxySimple.deploy(implementation.address, deployer.address, initData);
+  await proxy.deployed();
+  console.log("RevenueDistributionProxySimple deployed to:", proxy.address);
+
+  // Deploy the proxy admin
+  console.log("\n3. Deploying RevenueDistributionProxyAdmin...");
+  const ProxyAdmin = await ethers.getContractFactory("RevenueDistributionProxyAdmin");
+  const proxyAdmin = await ProxyAdmin.deploy(proxy.address, deployer.address);
+  await proxyAdmin.deployed();
+  console.log("RevenueDistributionProxyAdmin deployed to:", proxyAdmin.address);
+
+  // Verify the proxy is working
+  console.log("\n4. Verifying proxy setup...");
+  const revenueDistribution = RevenueDistribution.attach(proxy.address);
+
+  // Check if admin role is set correctly
+  const DEFAULT_ADMIN_ROLE = await revenueDistribution.DEFAULT_ADMIN_ROLE();
+  const hasAdminRole = await revenueDistribution.hasRole(DEFAULT_ADMIN_ROLE, deployer.address);
+  console.log("Admin role set correctly:", hasAdminRole);
+
+  // Check immutable values
+  console.log("\n5. Checking immutable values...");
+  console.log("Burn percent:", (await revenueDistribution._burnPercent()).toString());
+  console.log("Treasury percent:", (await revenueDistribution._treasuryPercent()).toString());
+  console.log("Staking percent:", (await revenueDistribution._stakingPercent()).toString());
+  console.log("Marketing percent:", (await revenueDistribution._marketingPercent()).toString());
+  console.log("Liquidity percent:", (await revenueDistribution._liquidityPercent()).toString());
+  console.log("Stables ratio:", (await revenueDistribution._stablesRatio()).toString());
+
+  // Test basic functionality
+  console.log("\n6. Testing basic functionality...");
+  try {
+    // This should work since we have admin role
+    const testAddress = "0x1234567890123456789012345678901234567890";
+    await revenueDistribution.setTreasuryAddress(testAddress);
+    const treasuryAddress = await revenueDistribution._treasuryAddress();
+    console.log("Treasury address set successfully:", treasuryAddress === testAddress);
+  } catch (error) {
+    console.log("Basic functionality test failed:", error.message);
+  }
+
+  console.log("\n=== Deployment Summary ===");
+  console.log("Implementation address:", implementation.address);
+  console.log("Proxy address:", proxy.address);
+  console.log("Proxy admin address:", proxyAdmin.address);
+  console.log("Admin address:", deployer.address);
+
+  console.log("\n=== Usage Instructions ===");
+  console.log("1. Use the proxy address as your main contract address");
+  console.log("2. All calls to the proxy will be forwarded to the implementation");
+  console.log("3. The proxy admin can change the proxy admin address");
+  console.log("4. Note: This simple proxy doesn't support upgrades - implementation is immutable");
+  console.log("5. For upgradeable proxy, use the OpenZeppelin version with @openzeppelin/contracts-upgradeable");
+
+  return {
+    implementation: implementation.address,
+    proxy: proxy.address,
+    proxyAdmin: proxyAdmin.address,
+    admin: deployer.address,
+  };
+}
+
+// We recommend this pattern to be able to use async/await everywhere
+// and properly handle errors.
+main()
+  .then((result) => {
+    console.log("\nDeployment completed successfully!");
+    process.exit(0);
+  })
+  .catch((error) => {
+    console.error("Deployment failed:", error);
+    process.exit(1);
+  });
