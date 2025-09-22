@@ -28,6 +28,8 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
     error NoStakedTokensInCycle();
     error NoStakedTokens();
     error AmountTooSmall();
+    error CycleAlreadyOpened();
+    error CycleNotEnded();
 
     IERC20 public immutable _RVT; // RVT token for staking and rewards
 
@@ -53,6 +55,7 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
 
     uint256 public _currentCycle; // Current cycle number
     uint256 public _totalRewardsDistributed; // Total rewards distributed across all cycles
+    bool public _open = false;
 
     event Staked(address indexed user, uint256 amount, uint256 cycle);
     event Withdrawn(address indexed user, uint256 amount, uint256 cycle);
@@ -64,7 +67,7 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
     constructor(address _rvt) Ownable(msg.sender) {
         if(_rvt == address(0)) revert InvalidAddress();
         _RVT = IERC20(_rvt);
-        _currentCycle = 1;
+        _currentCycle = 0;
     }
 
     function getCurrentCycle() public view returns (Cycle memory) {
@@ -72,15 +75,15 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
     }
 
     function currentIsStarted() public view returns (bool) {
-        return _cycles[_currentCycle].startTime <= block.timestamp;
+        return !_open && _cycles[_currentCycle].startTime <= block.timestamp;
     }
 
     function currentIsEnded() public view returns (bool) {
-        return _cycles[_currentCycle].startTime != 0 && _cycles[_currentCycle].endTime < block.timestamp;
+        return !_open && _cycles[_currentCycle].endTime < block.timestamp;
     }
 
     function currentIsOpen() public view returns (bool) {
-        return _cycles[_currentCycle].startTime == 0;
+        return _open;
     }
 
     function getCycle(uint256 _cycle) public view returns (Cycle memory) {
@@ -101,13 +104,15 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
     }
 
     function getStakeProportion(address _account, uint256 _cycle) public view returns (uint256) {
-        if (_cycles[_cycle].supply == 0) revert NoStakedTokensInCycle();
+        if (_cycles[_cycle].supply == 0) return 0;
         return (_stakes[_account].amount * 1e18) / _cycles[_cycle].supply;
     }
 
     function getCycleReward(address _account, uint256 _cycle) public view returns (uint256) {
         if (_cycles[_cycle].supply == 0 || _cycles[_cycle].pool == 0) return 0;
-        return (_cycles[_cycle].pool * _stakes[_account].amount) / _cycles[_cycle].supply;
+        if (_claimedCycles[_account][_cycle]) return 0;
+        uint256 proportion = getStakeProportion(_account, _cycle);
+        return (_cycles[_cycle].pool * proportion) / 1e18;
     }
 
     function isClaimedCycle(address _account, uint256 _cycle) public view returns (bool) {
@@ -186,20 +191,23 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
             _claimedCycles[msg.sender][i] = true;
         }
 
-        if(totalRewards == 0) revert NoRewardsToClaim();
-        _RVT.safeTransfer(msg.sender, totalRewards);
+        if(totalRewards != 0) _RVT.safeTransfer(msg.sender, totalRewards);
         return totalRewards;
     }
 
     function closeAndOpenCycle(uint256 _rewardAmount) public onlyOwner whenNotPaused {
-        if(!currentIsEnded()) revert CurrentCycleNotEnded();
+        if (_open) revert CycleAlreadyOpened();
+        if (!currentIsEnded()) revert CycleNotEnded();
         if (_rewardAmount == 0) revert RewardAmountMustBeGreaterThan0();
 
         _currentCycle++;
+        _open = true;
         _cycles[_currentCycle].startTime = 0;
         _cycles[_currentCycle].endTime = 0;
         _cycles[_currentCycle].pool = _rewardAmount;
         _cycles[_currentCycle].supply = _cycles[_currentCycle - 1].supply;
+
+        if(_RVT.balanceOf(address(this)) < _cycles[_currentCycle].supply + _cycles[_currentCycle].pool) revert InsufficientRewards();
 
         emit NewCycleOpened(_currentCycle, _rewardAmount, block.timestamp);
         emit RewardPoolUpdated(_rewardAmount, _currentCycle);
@@ -207,12 +215,14 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
 
     // Owner starts new cycle and adds rewards
     function startNewCycle() external onlyOwner whenNotPaused {
+        if(!currentIsOpen()) revert CycleNotOpen();
         if (_cycles[_currentCycle].startTime != 0) revert CycleStarted();
         if(_cycles[_currentCycle].pool == 0) revert RewardAmountMustBeGreaterThan0();
         if(_RVT.balanceOf(address(this)) < _cycles[_currentCycle].supply + _cycles[_currentCycle].pool) revert InsufficientRewards();
 
         _cycles[_currentCycle].startTime = block.timestamp;
         _cycles[_currentCycle].endTime = block.timestamp + _CYCLE_DURATION;
+        _open = false;
 
         emit NewCycleStarted(_currentCycle, _cycles[_currentCycle].pool, block.timestamp);
     }
