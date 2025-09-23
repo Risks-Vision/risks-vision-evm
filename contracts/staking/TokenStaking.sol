@@ -26,6 +26,7 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
     error NoStakedTokens();
     error AmountTooSmall();
     error CycleNotOpen();
+    error CycleAlreadyOpen();
 
     IERC20 public immutable _RVT; // RVT token for staking and rewards
 
@@ -34,7 +35,7 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
     uint256 public constant _MIN_STAKE_AMOUNT = 1e18;
 
     // Cycle states
-    enum CycleState { OPEN, RUNNING, ENDED }
+    enum CycleState { OPEN, RUNNING, ENDED, INITIAL }
 
     struct UserStake {
         uint256 amount; // Staked RVT
@@ -67,7 +68,7 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
         if(_rvt == address(0)) revert InvalidAddress();
         _RVT = IERC20(_rvt);
         _currentCycle = 0;
-        _cycles[_currentCycle].state = CycleState.OPEN;
+        _cycles[_currentCycle].state = CycleState.INITIAL;
     }
 
     function getCurrentCycle() public view returns (Cycle memory) {
@@ -187,7 +188,8 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
     }
 
     function endAndOpenCycle(uint256 _rewardAmount) public onlyOwner whenNotPaused {
-        if (_currentCycle != 0 && !currentIsEndedByTime()) revert CycleNotEnded();
+        if (!currentIsEndedByTime()) revert CycleNotEnded();
+        if(_cycles[_currentCycle].state == CycleState.OPEN) revert CycleAlreadyOpen();
         if (_rewardAmount == 0) revert RewardAmountMustBeGreaterThanZero();
 
         _currentCycle++;
