@@ -18,6 +18,7 @@ contract TokenStakingTest is Test {
 
         rvt.mintTo(user1, 1000000e18);
         rvt.mintTo(user2, 1000000e18);
+        rvt.approve(address(staking), type(uint256).max);
 
         vm.prank(user1);
         rvt.approve(address(staking), type(uint256).max);
@@ -38,14 +39,10 @@ contract TokenStakingTest is Test {
         require(cycle.supply == 0, "Cycle should not have a supply");
     }
 
-    function test_InitialCycleOpening() public {
-        // The admin can open the first cycle, the cycle will be increased by 1
-        // The state of the previous cycle will be set to ended
-        // The new cycle will be set to open
+    function test_OpenInitialCycle() public {
         require(staking._currentCycle() == 0, "Cycle should be 0");
 
-        rvt.mintTo(address(staking), 1000e18);
-        staking.endAndOpenCycle(1000e18);
+        staking.openInitialCycle(1000e18);
 
         TokenStaking.Cycle memory cycle = staking.getCurrentCycle();
 
@@ -57,225 +54,245 @@ contract TokenStakingTest is Test {
         require(cycle.supply == 0, "Cycle should have a supply of 0");
     }
 
-    function test_TheOwnerTryToOpenCycleAgain() public {
-        rvt.mintTo(address(staking), 1000e18);
-        staking.endAndOpenCycle(1000e18);
-        vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleAlreadyOpen.selector));
+    function test_InitialCycleCanOnlyBeOpenedOnce() public {
+        staking.openInitialCycle(1000e18);
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.InvalidCycleState.selector));
+        staking.openInitialCycle(1000e18);
+    }
+
+    function test_OwnerCanNotEndAndOpenBeforeInitialCycle() public {
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.InvalidCycleState.selector));
         staking.endAndOpenCycle(1000e18);
     }
 
-    // function test_StartNewCycleWithStakers() public {
-    //     rvt.mintTo(address(staking), 1000e18);
-    //     staking.closeAndOpenCycle(1000e18);
+    function test_OwnerCanNotEndAndOpenAfterInitialCycle() public {
+        staking.openInitialCycle(1000e18);
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.InvalidCycleState.selector));
+        staking.endAndOpenCycle(1000e18);
+    }
 
-    //     require(staking.currentIsOpen() == true, "Cycle should be opened");
+    function test_OwnerCanNotStartNewCycleIfCycleIsNotOpen() public {
+        staking.openInitialCycle(1000e18);
+        staking.startNewCycle();
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.InvalidCycleState.selector));
+        staking.openInitialCycle(1000e18);
+    }
 
-    //     vm.prank(user1);
-    //     staking.stake(5000e18);
-    //     vm.prank(user2);
-    //     staking.stake(5000e18);
+    function test_OwnerCanNotEndAndOpenWhenCycleIsEnded() public {
+        staking.openInitialCycle(1000e18);
+        staking.startNewCycle();
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(1000e18);
+    }
 
-    //     TokenStaking.Cycle memory cycle = staking.getCurrentCycle();
+    function test_MinimumStakeAmount() public {
+        staking.openInitialCycle(1000e18);
 
-    //     require(cycle.supply == 5000e18 + 5000e18, "Cycle should have a supply of 10000e18");
-    //     require(cycle.pool == 1000e18, "Cycle should have a pool of 1000e18");
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.CannotStakeZero.selector));
+        staking.stake(0);
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.AmountTooSmall.selector));
+        staking.stake(1e17);
+    }
 
-    //     staking.startNewCycle();
+    function test_CanNotStakeIfCycleIsNotOpen() public {
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotOpen.selector));
+        staking.stake(1000e18);
+    }
 
-    //     cycle = staking.getCurrentCycle();
+    function test_CanNotStakeIfCycleIsRunning() public {
+        staking.openInitialCycle(1000e18);
+        staking.startNewCycle();
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotOpen.selector));
+        staking.stake(1000e18);
+    }
 
-    //     require(cycle.startTime == block.timestamp, "Cycle should have a start time");
-    //     require(cycle.endTime == block.timestamp + 15 days, "Cycle should have a end time (15 days)");
-    // }
+    function test_CanNotStakeIfInsufficientAllowance() public {
+        staking.openInitialCycle(1000e18);
+        rvt.approve(address(staking), 0);
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.InsufficientAllowance.selector));
+        staking.stake(1000e18);
+    }
 
-    // function test_StakersStakingAndWithdrawInOpenedCycle() public {
-    //     rvt.mintTo(address(staking), 1000e18);
-    //     staking.closeAndOpenCycle(1000e18);
+    function test_CanStake() public {
+        staking.openInitialCycle(1000e18);
+        vm.prank(user1);
+        staking.stake(1000e18);
+        require(staking.getStakes(user1).amount == 1000e18, "User1 should have a stake of 1000e18");
+    }
 
-    //     require(staking.currentIsOpen() == true, "Cycle should be opened");
+    function test_ValidCycleRewards() public {
+        staking.openInitialCycle(1000e18);
 
-    //     vm.prank(user1);
-    //     staking.stake(5000e18);
-    //     vm.prank(user2);
-    //     staking.stake(5000e18);
+        vm.prank(user1);
+        staking.stake(750e18);
+        vm.prank(user2);
+        staking.stake(250e18);
 
-    //     require(staking.getStakeAmount(user1) == 5000e18, "User1 should have a stake of 5000e18");
-    //     require(staking.getStakeAmount(user2) == 5000e18, "User2 should have a stake of 5000e18");
-    //     require(staking.getStakeProportion(user1, 1) == 0.5 ether, "User1 should have a stake proportion of 50%");
-    //     require(staking.getStakeProportion(user2, 1) == 0.5 ether, "User2 should have a stake proportion of 50%");
-    //     require(staking.getCycleReward(user1, 1) == 500e18, "User1 should have a reward of 500e18");
-    //     require(staking.getCycleReward(user2, 1) == 500e18, "User2 should have a reward of 500e18");
+        require(staking.getCycleReward(user1, 1) == 750e18, "User1 should have a reward of 750e18");
+        require(staking.getCycleReward(user2, 1) == 250e18, "User2 should have a reward of 250e18");
+    }
 
-    //     // Try to stake again, this must be reverted
-    //     vm.prank(user1);
-    //     staking.stake(10000e18);
+    function test_newCycleRewardsOnNewCycle() public {
+        staking.openInitialCycle(1000e18);
 
-    //     require(staking.getCurrentCycle().supply == 5000e18 + 5000e18 + 10000e18, "Cycle should have a supply of 20000e18");
-    //     require(staking.getStakeAmount(user1) == 15000e18, "User1 should have a stake of 15000e18");
-    //     require(staking.getStakeAmount(user2) == 5000e18, "User2 should have a stake of 5000e18");
-    //     require(staking.getStakeProportion(user1, 1) == 0.75 ether, "User1 should have a stake proportion of 75%");
-    //     require(staking.getCycleReward(user1, 1) == 750e18, "User1 should have a reward of 750e18");
+        vm.prank(user1);
+        staking.stake(750e18);
+        vm.prank(user2);
+        staking.stake(250e18);
 
-    //     vm.prank(user2);
-    //     staking.withdraw();
+        staking.startNewCycle();
+        require(staking.getCycleReward(user1, 1) == 750e18, "User1 should have a reward of 750e18");
+        require(staking.getCycleReward(user2, 1) == 250e18, "User2 should have a reward of 250e18");
 
-    //     require(staking.getCurrentCycle().supply == 5000e18 + 10000e18, "Cycle should have a supply of 15000e18");
-    //     require(staking.getStakeAmount(user1) == 15000e18, "User1 should have a stake of 15000e18");
-    //     require(staking.getStakeAmount(user2) == 0, "User2 should have a stake of 0");
-    //     require(staking.getStakeProportion(user1, 1) == 1 ether, "User1 should have a stake proportion of 100%");
-    //     require(staking.getCycleReward(user1, 1) == 1000e18, "User1 should have a reward of 1000e18");
+        vm.warp(block.timestamp + 16 days);
 
-    //     vm.prank(user2);
-    //     staking.stake(5000e18);
+        staking.endAndOpenCycle(500e18);
+        staking.startNewCycle();
 
-    //     require(staking.getCurrentCycle().supply == 5000e18 + 5000e18 + 10000e18, "Cycle should have a supply of 20000e18");
-    //     require(staking.getStakeAmount(user1) == 15000e18, "User1 should have a stake of 15000e18");
-    //     require(staking.getStakeAmount(user2) == 5000e18, "User2 should have a stake of 5000e18");
-    //     require(staking.getStakeProportion(user1, 1) == 0.75 ether, "User1 should have a stake proportion of 75%");
-    //     require(staking.getStakeProportion(user2, 1) == 0.25 ether, "User2 should have a stake proportion of 25%");
-    //     require(staking.getCycleReward(user1, 1) == 750e18, "User1 should have a reward of 750e18");
-    //     require(staking.getCycleReward(user2, 1) == 250e18, "User2 should have a reward of 250e18");
-    // }
+        require(staking.getCycleReward(user1, 2) == 375e18, "User1 should have a reward of 375e18");
+        require(staking.getCycleReward(user2, 2) == 125e18, "User2 should have a reward of 125e18");
+    }
 
-    // function test_StakersStakingAndWithdrawInClosedCycle() public {
-    //     rvt.mintTo(address(staking), 1000e18);
-    //     staking.closeAndOpenCycle(1000e18);
+    function test_CanNotClaimCurrentCycleRewards() public {
+        staking.openInitialCycle(1000e18);
+        vm.prank(user1);
+        staking.stake(1000e18);
 
-    //     require(staking.currentIsOpen() == true, "Cycle should be opened");
+        staking.startNewCycle();
 
-    //     vm.prank(user1);
-    //     staking.stake(5000e18);
-    //     vm.prank(user2);
-    //     staking.stake(5000e18);
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.InvalidCycle.selector));
+        staking.claimCycleRewards(1);
+    }
 
-    //     staking.startNewCycle();
+    function test_CanNotClaimRewardsIfNotStaked() public {
+        staking.openInitialCycle(1000e18);
+        staking.startNewCycle();
 
-    //     require(staking.currentIsStarted() == true, "Cycle should have started");
+        vm.warp(block.timestamp + 16 days);
 
-    //     vm.prank(user1);
-    //     vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotOpen.selector));
-    //     staking.withdraw();
+        staking.endAndOpenCycle(500e18);
 
-    //     vm.prank(user1);
-    //     vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotOpen.selector));
-    //     staking.stake(5000e18);
+        vm.prank(user1);
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.NoStakedTokens.selector));
+        staking.claimCycleRewards(1);
+    }
 
-    //     vm.warp(block.timestamp + 10 days);
+    function test_CanNotClaimIfCycleIsNotOpen() public {
+        staking.openInitialCycle(1000e18);
 
-    //     vm.prank(user1);
-    //     vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotOpen.selector));
-    //     staking.withdraw();
+        vm.prank(user1);
+        staking.stake(1000e18);
+        staking.startNewCycle();
 
-    //     vm.prank(user1);
-    //     vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotOpen.selector));
-    //     staking.stake(5000e18);
-    // }
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18);
+        staking.startNewCycle();
 
-    // function test_StakersClaimRewards() public {
-    //     rvt.mintTo(address(staking), 1000e18);
-    //     staking.closeAndOpenCycle(1000e18);
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotOpen.selector));
+        staking.claimCycleRewards(1);
+    }
 
-    //     require(staking.currentIsOpen() == true, "Cycle should be opened");
+    function test_CanClaimPreviousCycleRewards() public {
+        staking.openInitialCycle(1000e18);
+
+        vm.prank(user1);
+        staking.stake(1000e18);
+
+        staking.startNewCycle();
+        vm.warp(block.timestamp + 16 days);
+
+        staking.endAndOpenCycle(500e18);
+
+        vm.startPrank(user1);
+
+        uint256 balanceBefore = rvt.balanceOf(user1);
+        uint256 contractBalanceBefore = rvt.balanceOf(address(staking));
+
+        staking.claimCycleRewards(1);
+
+        uint256 balanceAfter = rvt.balanceOf(user1);
+        uint256 contractBalanceAfter = rvt.balanceOf(address(staking));
+
+        require(contractBalanceBefore - 1000e18 == contractBalanceAfter, "Contract balance should have decreased by 1000e18");
+        require(balanceBefore + 1000e18 == balanceAfter, "User1 should have received 1000e18");
+
+        vm.stopPrank();
+    }
+
+    function test_CanNotClaimRewardsIfAlreadyClaimed() public {
+        staking.openInitialCycle(1000e18);
+
+        vm.prank(user1);
+        staking.stake(1000e18);
+
+        staking.startNewCycle();
+        vm.warp(block.timestamp + 16 days);
+
+        staking.endAndOpenCycle(500e18);
+
+        vm.startPrank(user1);
+        staking.claimCycleRewards(1);
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.AlreadyClaimedThisCycle.selector));
+        staking.claimCycleRewards(1);
+        vm.stopPrank();
+    }
+
+    function test_SummatoryOfOldRewardsIsCorrect() public {
+        staking.openInitialCycle(500e18);
+
+        vm.prank(user1);
+        staking.stake(1000e18);
+
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18); // 2 Cycle with 500e18 rewards
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18); // 3 Cycle with 500e18 rewards
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18); // 4 Cycle with 500e18 rewards, this is not claimable
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18);
+
+        require(staking.getTotalOldCycleRewards(user1) == 2000e18, "User1 should have a total of 2000e18");
+    }
+
+    function test_CanClaimOldRewardsAndIsNotClaimableAgain() public {
+        staking.openInitialCycle(500e18);
+
+        vm.prank(user1);
+        staking.stake(1000e18);
+
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18); // 2 Cycle with 500e18 rewards
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18); // 3 Cycle with 500e18 rewards
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18); // 4 Cycle with 500e18 rewards, this is not claimable
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18);
+
+        vm.startPrank(user1);
+
+        uint256 balanceBefore = rvt.balanceOf(user1);
+        uint256 contractBalanceBefore = rvt.balanceOf(address(staking));
+
+        staking.claimOldRewards();
         
-    //     vm.prank(user1);
-    //     staking.stake(5000e18);
-    //     vm.prank(user2);
-    //     staking.stake(5000e18);
+        uint256 balanceAfter = rvt.balanceOf(user1);
+        uint256 contractBalanceAfter = rvt.balanceOf(address(staking));
 
-    //     staking.startNewCycle();
+        require(balanceBefore + 2000e18 == balanceAfter, "User1 should have received 2000e18");
+        require(contractBalanceBefore - 2000e18 == contractBalanceAfter, "Contract balance should have decreased by 2000e18");
 
-    //     require(staking.currentIsStarted() == true, "Cycle should have started");
-    //     require(staking.getCycleReward(user1, 1) == 500e18, "User1 should have a reward of 500e18");
-
-    //     vm.prank(user1);
-    //     vm.expectRevert(abi.encodeWithSelector(TokenStaking.IsCurrentCycle.selector));
-    //     staking.claimCycleRewards(1);
-
-    //     vm.warp(block.timestamp + 16 days);
-
-    //     vm.prank(user1);
-    //     vm.expectRevert(abi.encodeWithSelector(TokenStaking.IsCurrentCycle.selector));
-    //     staking.claimCycleRewards(1);
-
-    //     staking.closeAndOpenCycle(1000e18);
-
-    //     require(staking._currentCycle() == 2, "Cycle should be 2");
-    //     require(staking.getCycleReward(user1, 1) == 500e18, "User1 should have a reward of 500e18");
-
-    //     uint256 balanceBefore = rvt.balanceOf(user1);
-
-    //     vm.prank(user1);
-    //     staking.claimCycleRewards(1);
-
-    //     uint256 balanceAfter = rvt.balanceOf(user1);
-
-    //     require(balanceBefore + 500e18 == balanceAfter, "User1 should have received 500e18");
-    //     require(staking.getCycleReward(user1, 1) == 0, "User1 should have a reward of 0");
-
-    //     vm.prank(user1);
-    //     vm.expectRevert(abi.encodeWithSelector(TokenStaking.AlreadyClaimedThisCycle.selector));
-    //     staking.claimCycleRewards(1);
-    // }
-
-    // function test_OwnerCanNotOpenCycleIfNotEnded() public {
-    //     rvt.mintTo(address(staking), 1000e18);
-    //     staking.closeAndOpenCycle(1000e18);
-
-    //     require(staking.currentIsOpen() == true, "Cycle should be opened");
-
-    //     vm.prank(staking.owner());
-    //     staking.startNewCycle();
-
-    //     require(staking.currentIsOpen() == false, "Cycle should be closed");
-    //     require(staking.currentIsStarted() == true, "Cycle should have started");
-
-    //     vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotEnded.selector));
-    //     staking.closeAndOpenCycle(1000e18);
-
-    //     vm.warp(block.timestamp + 16 days);
-    //     vm.prank(staking.owner());
-    //     staking.closeAndOpenCycle(1000e18);
-
-    //     console.log("staking.currentIsOpen()", staking.currentIsOpen());
-    //     console.log("staking.currentIsStarted()", staking.currentIsStarted());
-
-    //     require(staking.currentIsOpen() == true, "Cycle should be opened");
-    // }
-
-
-    // function testRolloverAndRewards() public {
-    //     // rvt.mintTo(address(staking), 1000e18);
-    //     // staking.startNewCycle();
-
-    //     // Cycle 1: User1 stakes 50% from start, User2 stakes 50% mid-cycle
-    //     // vm.prank(user1);
-    //     // staking.stake(5000e18);
-    //     // vm.warp(block.timestamp + 15 days);
-    //     // vm.prank(user2);
-    //     // staking.stake(5000e18);
-    //     // vm.warp(block.timestamp + 15 days); // End cycle
-    //     // vm.prank(staking.owner());
-
-    //     // // Check rewards for Cycle 1
-    //     // uint256 user1Rewards = staking.earned(user1);
-    //     // uint256 user2Rewards = staking.earned(user2);
-    //     // console.log("user1Rewards after cycle 1", user1Rewards);
-    //     // console.log("user2Rewards after cycle 1", user2Rewards);
-    //     // assertGt(user1Rewards, user2Rewards); // User1 earns more due to longer duration
-
-    //     // Cycle 2: Stakes persist, check rollover
-    //     // assertEq(staking.getStakes(user1).amount, 5000e18);
-    //     // assertEq(staking.getStakes(user2).amount, 5000e18);
-    //     // skip(30 days); // End Cycle 2
-
-    //     // vm.prank(staking.owner());
-    //     // staking.startNewCycle(1000e18); // Cycle 3 starts
-
-    //     // // Both users earn equal rewards in Cycle 2 (full duration, equal stakes)
-    //     // vm.prank(user1);
-    //     // staking.claimRewards();
-    //     // vm.prank(user2);
-    //     // staking.claimRewards();
-    //     // assertApproxEqAbs(staking.earned(user1), staking.earned(user2), 1e10);
-    // }
+        vm.expectRevert(abi.encodeWithSelector(TokenStaking.NoRewardsToClaim.selector));
+        staking.claimOldRewards();
+    }
 }
