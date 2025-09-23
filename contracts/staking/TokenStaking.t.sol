@@ -178,21 +178,6 @@ contract TokenStakingTest is Test {
         staking.claimCycleRewards(1);
     }
 
-    function test_CanNotClaimIfCycleIsNotOpen() public {
-        staking.openInitialCycle(1000e18);
-
-        vm.prank(user1);
-        staking.stake(1000e18);
-        staking.startNewCycle();
-
-        vm.warp(block.timestamp + 16 days);
-        staking.endAndOpenCycle(500e18);
-        staking.startNewCycle();
-
-        vm.expectRevert(abi.encodeWithSelector(TokenStaking.CycleNotOpen.selector));
-        staking.claimCycleRewards(1);
-    }
-
     function test_CanClaimPreviousCycleRewards() public {
         staking.openInitialCycle(1000e18);
 
@@ -246,16 +231,18 @@ contract TokenStakingTest is Test {
 
         staking.startNewCycle(); 
         vm.warp(block.timestamp + 16 days);
-        staking.endAndOpenCycle(500e18); // 2 Cycle with 500e18 rewards
+        staking.endAndOpenCycle(500e18); 
+        staking.startNewCycle(); 
+        vm.warp(block.timestamp + 16 days);
+        staking.endAndOpenCycle(500e18);// 2 Cycle with 500e18 rewards
         staking.startNewCycle(); 
         vm.warp(block.timestamp + 16 days);
         staking.endAndOpenCycle(500e18); // 3 Cycle with 500e18 rewards
         staking.startNewCycle(); 
         vm.warp(block.timestamp + 16 days);
         staking.endAndOpenCycle(500e18); // 4 Cycle with 500e18 rewards, this is not claimable
-        staking.startNewCycle(); 
-        vm.warp(block.timestamp + 16 days);
-        staking.endAndOpenCycle(500e18);
+
+        console.log("staking.getTotalOldCycleRewards(user1)", staking.getTotalOldCycleRewards(user1));
 
         require(staking.getTotalOldCycleRewards(user1) == 2000e18, "User1 should have a total of 2000e18");
     }

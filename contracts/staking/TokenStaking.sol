@@ -98,23 +98,24 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
 
     function getStakeProportion(address _account, uint256 _cycle) public view returns (uint256) {
         if (_cycles[_cycle].supply == 0) return 0;
-        return (_stakes[_account].amount * 1e36) / _cycles[_cycle].supply; // Higher precision
+        return (_stakes[_account].amount * 1e48) / _cycles[_cycle].supply; // Higher precision
     }
 
     function getCycleReward(address _account, uint256 _cycle) public view returns (uint256) {
         if (_cycle > _currentCycle || _stakes[_account].amount == 0) return 0;
         if (_cycles[_cycle].supply == 0 || _cycles[_cycle].pool == 0) return 0;
         if (_claimedCycles[_account][_cycle]) return 0;
-        return (_cycles[_cycle].pool * getStakeProportion(_account, _cycle)) / 1e36; // Higher precision
+        return (_cycles[_cycle].pool * getStakeProportion(_account, _cycle)) / 1e48; // Higher precision
     }
 
     // The users will have more than 6 months to claim their rewards, if they dont claim it the rewards will be lost, so the RVT will be locked forever
     function getTotalOldCycleRewards(address _account) public view returns (uint256) {
         uint256 totalRewards = 0;
-        uint256 initialCycle = _currentCycle > _MAX_CYCLES ? _currentCycle - _MAX_CYCLES : 0;
+        uint256 initialCycle = _currentCycle > _MAX_CYCLES ? _currentCycle - _MAX_CYCLES + 1 : 1;
+        uint256 endCycle = _currentCycle > 0 ? _currentCycle - 1 : 0;
 
-        for(uint256 i = initialCycle; i < _currentCycle; i++) {
-            if(_claimedCycles[_account][i] && _cycles[i].state != CycleState.ENDED) continue;
+        for(uint256 i = initialCycle; i <= endCycle; i++) {
+            if(_claimedCycles[_account][i]) continue;
             totalRewards += getCycleReward(_account, i);
         }
 
@@ -151,9 +152,8 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
         emit Withdrawn(msg.sender, userAmount, _currentCycle);
     }
 
-    function claimCycleRewards(uint256 _cycle)  public nonReentrant whenNotPaused  {
+    function claimCycleRewards(uint256 _cycle) public nonReentrant whenNotPaused  {
         if (_cycle >= _currentCycle) revert InvalidCycle();
-        if (_cycles[_currentCycle].state != CycleState.OPEN) revert CycleNotOpen();
         if (_claimedCycles[msg.sender][_cycle]) revert AlreadyClaimedThisCycle();
         if (_stakes[msg.sender].amount == 0) revert NoStakedTokens();
 
@@ -173,18 +173,18 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
         emit RewardClaimed(msg.sender, totalRewards, _currentCycle);
     }
 
-    function claimOldCycleRewards() private returns(uint256) {
+    function claimOldCycleRewards() private returns (uint256) {
         uint256 totalRewards = 0;
+        uint256 initialCycle = _currentCycle > _MAX_CYCLES ? _currentCycle - _MAX_CYCLES + 1 : 1;
+        uint256 endCycle = _currentCycle > 0 ? _currentCycle - 1 : 0;
 
-        uint256 initialCycle = _currentCycle > _MAX_CYCLES ? _currentCycle - _MAX_CYCLES : 0;
-
-        for(uint256 i = initialCycle; i < _currentCycle; i++) {
-            if(_claimedCycles[msg.sender][i] && _cycles[i].state != CycleState.ENDED) continue;
+        for (uint256 i = initialCycle; i <= endCycle; i++) {
+            if (_claimedCycles[msg.sender][i]) continue;
             totalRewards += getCycleReward(msg.sender, i);
             _claimedCycles[msg.sender][i] = true;
         }
 
-        if(totalRewards != 0) _RVT.safeTransfer(msg.sender, totalRewards);
+        if (totalRewards != 0) _RVT.safeTransfer(msg.sender, totalRewards);
         return totalRewards;
     }
 
@@ -200,12 +200,12 @@ contract TokenStaking is Ownable, ReentrancyGuard, Pausable {
         _cycles[_currentCycle].pool = _rewardAmount;
 
         _RVT.safeTransferFrom(msg.sender, address(this), _rewardAmount);
-        emit NewCycleOpened(_currentCycle, 0, block.timestamp);
-        emit RewardPoolUpdated(0, _currentCycle);
+        emit NewCycleOpened(_currentCycle, _rewardAmount, block.timestamp);
+        emit RewardPoolUpdated(_rewardAmount, _currentCycle);
     }
 
     function endAndOpenCycle(uint256 _rewardAmount) public onlyOwner whenNotPaused {
-        if(_cycles[_currentCycle].state == CycleState.INITIAL || _cycles[_currentCycle].state != CycleState.RUNNING) revert InvalidCycleState();
+        if( _cycles[_currentCycle].state != CycleState.RUNNING) revert InvalidCycleState();
         if (!currentIsEndedByTime()) revert CycleNotEnded();
         if (_rewardAmount == 0) revert RewardAmountMustBeGreaterThanZero();
 
